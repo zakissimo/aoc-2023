@@ -61,10 +61,8 @@ fn part_two(input: &str)  -> Result<usize, Box<dyn Error>> {
     for line in lines {
         if line.len() > 0 {
             let digits = find_digits(line);
-            // println!("{:?}", digits);
             let first = digits.first().unwrap().1;
             let last = digits.last().unwrap().1;
-            // println!("{}, {}", first, last);
             ans += first * 10 + last;
         }
     }
@@ -73,14 +71,14 @@ fn part_two(input: &str)  -> Result<usize, Box<dyn Error>> {
 
 fn main() -> Result<(), Box<dyn Error>> {
     // println!("{:?}", current_dir());
-    // let sample_one = fs::read_to_string("sample-one")?;
+    let sample_one = fs::read_to_string("sample-one")?;
     let sample_two = fs::read_to_string("sample-two")?;
     let input = fs::read_to_string("input")?;
 
-    // println!("{:?}", part_one(&sample_one));
-    // println!("{:?}", part_one(&input));
+    println!("Part one sample:\t{}", part_one(&sample_one)?);
+    println!("Part one input:\t\t{}", part_one(&input)?);
 
-    println!("{:?}", part_two(&sample_two));
-    println!("{:?}", part_two(&input));
+    println!("Part two sample:\t{}", part_two(&sample_two)?);
+    println!("Part two input:\t\t{}", part_two(&input)?);
     Ok(())
 }
