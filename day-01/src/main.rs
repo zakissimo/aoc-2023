@@ -38,6 +38,12 @@ fn find_digits(line: &str) -> Vec<(usize, usize)> {
         }
     }
 
+    for (digit, literal) in look_up.iter().enumerate() {
+        if let Some(idx) = line.rfind(literal) {
+            ret.push((idx, digit));
+        }
+    }
+
     for (idx, c) in line.chars().enumerate() {
        if c.is_digit(10) {
             ret.push((idx, c.to_digit(10).unwrap().try_into().unwrap()));
