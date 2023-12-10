@@ -91,7 +91,10 @@ fn ranges_to_ranges(maps: &Vec<Vec<u64>>, ranges: &Vec<(u64, u64)>) -> Vec<(u64,
 
             let range_a = range.0;
             let range_b = range.0 + range.1;
-            let range_len = range.1;
+            let mut range_len = range.1;
+            if range_len > 0 {
+                range_len -= 1;
+            }
 
             if (map_a..map_b).contains(&range_a) && (map_a..map_b).contains(&range_b) {
                 let new_range_a = range_a - map[1] + map[0];
@@ -99,12 +102,12 @@ fn ranges_to_ranges(maps: &Vec<Vec<u64>>, ranges: &Vec<(u64, u64)>) -> Vec<(u64,
             } else if (map_a..map_b).contains(&range_a) {
                 let new_range_a = range_a - map[1] + map[0];
                 ret.push((new_range_a, range_len - (range_b - map_b)));
-                ret.extend(ranges_to_ranges(maps, &vec![(map_b + 1, range_b - map_b)].to_vec()));
+                ret.extend(ranges_to_ranges(maps, &vec![(map_b + 1, range_b - map_b - 1)].to_vec()));
             } else if (map_a..map_b).contains(&range_b) {
                 let new_map_a = map_a - map[1] + map[0];
-                ret.push((new_map_a, range_b - map_a));
+                ret.push((new_map_a, range_b - map_a - 1));
                 if range_a != 0 {
-                    ret.extend(ranges_to_ranges(maps, &vec![(range_a - 1, map_a - range_a)].to_vec()));
+                    ret.extend(ranges_to_ranges(maps, &vec![(range_a - 1, map_a - range_a - 1)].to_vec()));
                 }
             }
         }
