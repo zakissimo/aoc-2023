@@ -1,7 +1,7 @@
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error;
 use std::fs::read_to_string;
-use std::collections::HashSet;
-use std::collections::HashMap;
 
 struct Almanac<'a> {
     keys: Vec<(&'a str, &'a str)>,
@@ -18,10 +18,12 @@ fn parse(input: &String) -> Almanac {
     let mut map = HashMap::<(&str, &str), Vec<Vec<usize>>>::new();
 
     for line in input.lines() {
-
         if line.contains("seeds: ") {
-                if let Some((_, right)) = line.split_once(' '){
-                    seeds = right.split_whitespace().map(|e| e.parse::<usize>().unwrap_or(0)).collect();
+            if let Some((_, right)) = line.split_once(' ') {
+                seeds = right
+                    .split_whitespace()
+                    .map(|e| e.parse::<usize>().unwrap_or(0))
+                    .collect();
             }
         }
 
@@ -37,7 +39,11 @@ fn parse(input: &String) -> Almanac {
         } else if !line.is_empty() {
             if let Some((left, right)) = keys.last() {
                 if let Some(k) = map.get_mut(&(left, right)) {
-                    k.push(line.split_whitespace().map(|d| d.parse().unwrap_or(0)).collect());
+                    k.push(
+                        line.split_whitespace()
+                            .map(|d| d.parse().unwrap_or(0))
+                            .collect(),
+                    );
                 }
             }
         }
@@ -52,14 +58,9 @@ fn parse(input: &String) -> Almanac {
 }
 
 fn part_one(almanac: &Almanac) -> Result<usize, Box<dyn Error>> {
-
     let mut ans = usize::MAX;
-    let mut count = 0;
-    let total = almanac.seeds.len();
 
     for seed in &almanac.seeds {
-        count += 1;
-        println!("> {:?}", count as f64 / total as f64 * 100.0);
         let mut queue = vec![*seed];
         for key in &almanac.keys {
             if let Some(v) = almanac.map.get(&key) {
@@ -79,30 +80,61 @@ fn part_one(almanac: &Almanac) -> Result<usize, Box<dyn Error>> {
     Ok(ans)
 }
 
-fn part_two(almanac: &Almanac) -> Result<usize, Box<dyn Error>> {
+fn ranges_to_ranges(v: &Vec<Vec<usize>>, c: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
 
-    let mut seeds = HashSet::<usize>::new();
+    let mut out = Vec::<(usize, usize)>::new();
+
+    for curr in c {
+        let mut ret = Vec::<(usize, usize)>::new();
+        for vec in v {
+            if (vec[1]..(vec[1] + vec[2])).contains(&curr.0) {
+                ret.push((vec[0] + curr.0 - vec[1], vec[2].min(curr.1)));
+                if curr.0 + curr.1 > vec[1] + vec[2] {
+                    ret.push((
+                        curr.0 + vec[2].min(curr.1),
+                        (curr.0 + curr.1) - (vec[1] + vec[2]),
+                    ));
+                }
+            } else if (vec[1]..(vec[1] + vec[2])).contains(&(curr.0 + curr.1)) {
+                ret.push((curr.0.max(vec[1]) + vec[0] - vec[1], vec[2].min(curr.1)));
+                if curr.0 < vec[1] {
+                    ret.push((curr.0.min(vec[1]), curr.0.max(vec[1])))
+                }
+            }
+        }
+        if ret.is_empty() {
+            ret.push(*curr);
+        }
+        out.extend(ret);
+    }
+    out
+}
+
+fn part_two(almanac: &Almanac) -> usize {
+    let mut ans = Vec::<(usize, usize)>::new();
 
     for seed_pair in almanac.seeds.chunks(2) {
-        for seed in seed_pair[0]..(seed_pair[0] + seed_pair[1]) {
-            seeds.insert(seed);
+        let mut queue = vec![(seed_pair[0], seed_pair[1])].to_vec();
+        for key in &almanac.keys {
+            if let Some(v) = almanac.map.get(&key) {
+                queue = ranges_to_ranges(&v, &queue);
+            }
         }
+        let min_queue = queue.iter().min_by_key(|&(left, _)| left).unwrap();
+            ans.push(min_queue.clone());
     }
 
-    let seeds: Vec::<usize> = seeds.iter().cloned().collect();
+    println!("{:?}", ans);
 
-    let new_almanac = Almanac {
-        keys: almanac.keys.clone(),
-        seeds,
-        _elements: almanac._elements.clone(),
-        map: almanac.map.clone(),
-    };
+    let min = &ans.iter().min_by_key(|&(left, _)| left);
 
-    Ok(part_one(&new_almanac)?)
+    match min {
+        Some(ret) => ret.0,
+        None => 0,
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-
     let sample = read_to_string("sample")?;
     let input = read_to_string("input")?;
 
