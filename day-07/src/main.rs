@@ -15,7 +15,7 @@ fn parse(input: &str) -> Result<Vec<(&str, usize)>, Box<dyn Error>> {
     Ok(data)
 }
 
-fn get_hand(cards: &str) -> usize {
+fn get_hand_one(cards: &str) -> usize {
     let mut map = HashMap::new();
     let set = cards.chars().collect::<HashSet<char>>();
 
@@ -49,60 +49,132 @@ fn get_hand(cards: &str) -> usize {
     2
 }
 
-fn sort_hands(ranked: &mut Vec<(&str, usize, usize)>) {
-    let cards = "123456789TJQKA";
-    ranked.sort_by_key(|&(_, r, _)| r);
+fn get_hand_two(cards: &str, rank: usize) -> usize {
+    let mut map = HashMap::new();
 
-    let mut indices_to_swap = Vec::new();
+    for card in cards.chars() {
+        *map.entry(card).or_insert(0) += 1;
+    }
 
-    for idx in 0..ranked.len().saturating_sub(1) {
-        let (left, right) = (&ranked[idx], &ranked[idx + 1]);
+    let mut v = map.values().collect::<Vec<&usize>>();
+    v.sort();
 
-        if left.1 == right.1 {
-            let mut i = 0;
+    let set = cards.chars().collect::<HashSet<char>>();
 
-            while left.0.chars().nth(i) == right.0.chars().nth(i) {
-                i += 1;
+    if let Some(j_count) = map.get(&'J') {
+        // JJJJA
+        if *j_count >= 4 {
+            return 6;
+        }
+
+        // JJJKA / JJJAA
+        if *j_count == 3 {
+            if set.len() == 2 {
+                return 6;
             }
+            if set.len() == 3 {
+                return 5;
+            }
+        }
 
-            if i < left.0.len()
-                && cards.find(left.0.chars().nth(i).unwrap())
-                    > cards.find(right.0.chars().nth(i).unwrap())
-            {
-                indices_to_swap.push(idx);
+        // AKQJJ / KAAJJ / AAAJJ
+        if *j_count == 2 {
+            if set.len() == 4 {
+                return 3;
+            }
+            if set.len() == 3 {
+                return 5;
+            }
+            if set.len() == 2 {
+                return 6;
+            }
+        }
+
+        // AAQTJ / AKQTJ / AAKKJ / AAAKJ / AAAAJ
+        if *j_count == 1 {
+            if rank == 1 {
+                return 3;
+            }
+            if rank == 2 {
+                return 4;
+            }
+            if rank == 3 {
+                return 5;
+            }
+            if set.len() == 2 {
+                return 6;
+            }
+            if set.len() == 5 {
+                return 1;
             }
         }
     }
 
-    for &idx in &indices_to_swap {
-        ranked.swap(idx, idx + 1);
-    }
+    rank
+}
+
+fn sort_hands(cards: &str, ranked: &mut Vec<(&str, usize, usize)>) {
+    ranked.sort_by(|(hand1, rank1, _), (hand2, rank2, _)| {
+        let cmp_by_rank = rank1.cmp(rank2);
+
+        if cmp_by_rank == std::cmp::Ordering::Equal {
+            for (a, b) in hand1.chars().zip(hand2.chars()) {
+                if a != b {
+                    return cards.find(a).unwrap().cmp(&cards.find(b).unwrap());
+                }
+            }
+        }
+        cmp_by_rank
+    });
 }
 
 fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
-    let mut winings = 0;
+    let mut winnings = 0;
     let data = parse(input)?;
+    let cards = "23456789TJQKA";
 
     let mut ranked: Vec<(&str, usize, usize)> = data
         .iter()
-        .map(|(hand, bid)| (*hand, get_hand(hand), *bid))
+        .map(|(hand, bid)| (*hand, get_hand_one(hand), *bid))
         .collect();
 
-    sort_hands(&mut ranked);
+    sort_hands(cards, &mut ranked);
 
     for (factor, (_, _, bid)) in ranked.iter().enumerate() {
-        winings += bid * (factor + 1);
+        winnings += bid * (factor + 1);
     }
 
-    Ok(winings)
+    Ok(winnings)
+}
+
+fn part_two(input: &str) -> Result<usize, Box<dyn Error>> {
+    let mut winnings = 0;
+    let data = parse(input)?;
+    let cards = "J23456789TQKA";
+
+    let mut ranked: Vec<(&str, usize, usize)> = data
+        .iter()
+        .map(|(hand, bid)| (*hand, get_hand_two(hand, get_hand_one(hand)), *bid))
+        .collect();
+
+    sort_hands(cards, &mut ranked);
+
+    for (factor, (_, _, bid)) in ranked.iter().enumerate() {
+        winnings += bid * (factor + 1);
+    }
+
+    Ok(winnings)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let sample = read_to_string("sample")?;
     let input = read_to_string("input")?;
 
-    println!("{:?}", part_one(&sample));
-    println!("{:?}", part_one(&input));
+    println!("Part One Sample: {:?}", part_one(&sample));
+    println!("Part One Input: {:?}", part_one(&input));
+
+    println!("Part Two Sample: {:?}", part_two(&sample));
+    println!("Part Two Input: {:?}", part_two(&input));
 
     Ok(())
 }
