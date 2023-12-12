@@ -42,6 +42,18 @@ fn get_next(meta: Vec<Vec<i32>>) -> i32 {
     acc
 }
 
+fn get_first(meta: Vec<Vec<i32>>) -> i32 {
+    let mut acc = 0;
+
+    for v in meta.iter().rev() {
+        if let Some(first) = v.first() {
+            acc = first - acc;
+        }
+    }
+
+    acc
+}
+
 fn part_one(input: &str) -> Result<i32, Box<dyn Error>> {
     let mut ans = 0;
     let data: Vec<Vec<i32>> = parse(input)?;
@@ -55,6 +67,19 @@ fn part_one(input: &str) -> Result<i32, Box<dyn Error>> {
     Ok(ans)
 }
 
+fn part_two(input: &str) -> Result<i32, Box<dyn Error>> {
+    let mut ans = 0;
+    let data: Vec<Vec<i32>> = parse(input)?;
+
+    for seq in data {
+        let mut meta = Vec::<Vec<i32>>::new();
+        meta.push(seq);
+        generate_sequences(&mut meta);
+        ans += get_first(meta);
+    }
+    Ok(ans)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
 
     let sample = read_to_string("sample")?;
@@ -62,6 +87,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Part One Sample: {:?}", part_one(&sample));
     println!("Part One input: {:?}", part_one(&input));
+
+    println!("Part One Sample: {:?}", part_two(&sample));
+    println!("Part Two input: {:?}", part_two(&input));
 
     Ok(())
 }
