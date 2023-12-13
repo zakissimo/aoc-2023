@@ -104,7 +104,6 @@ fn walk(
 }
 
 fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
-    // let mut ans: (usize, f64) = (0, 0.0);
     let mut ans = 0;
     let grid = parse(input)?;
 
@@ -133,14 +132,65 @@ fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
     Ok(ans / 2)
 }
 
+fn part_two(input: &str) -> Result<usize, Box<dyn Error>> {
+    let grid = parse(input)?;
+
+    if let Some(start) = get_start(&grid) {
+        for dir in &Dir::LIST {
+            let mut ans = 0;
+            let mut prev = start;
+            let mut go = dir.clone();
+            let mut visited: Vec<Vec<bool>> =
+                grid.iter().map(|row| vec![false; row.len()]).collect();
+            visited[start.1][start.0] = true;
+            let left = &[b'F', b'|', b'L', b'S'];
+            let right = &[b'J', b'|', b'7', b'S'];
+            loop {
+                if let Some(walk) = walk(&grid, &mut visited, &mut prev, &mut go) {
+                    if !walk {
+                        for (y, row) in grid.iter().enumerate() {
+                            let mut inside = false;
+                            for (x, tile) in row.iter().enumerate() {
+                                if visited[y][x] && grid[y][x] == b'|' {
+                                    inside = !inside;
+                                } else if left.contains(&grid[y][x]) {
+                                    inside = true;
+                                } else if right.contains(&grid[y][x]) {
+                                    inside = false;
+                                }
+                                if x < row.len() - 1 && inside && *tile == b'.' {
+                                    ans += 1;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            println!("ans: {:?}", ans);
+        }
+    }
+
+    Ok(0)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let sample_one = read_to_string("sample_one")?;
     let sample_two = read_to_string("sample_two")?;
+    let sample_three = read_to_string("sample_three")?;
+    let sample_four = read_to_string("sample_four")?;
     let input = read_to_string("input")?;
 
     println!("Sample one: {}", part_one(&sample_one)?);
     println!("Sample two: {}", part_one(&sample_two)?);
+
+    println!("Sample three: {}", part_two(&sample_three)?);
+    println!("Sample four: {}", part_two(&sample_four)?);
+
     println!("Input: {}", part_one(&input)?);
+    println!("Input: {}", part_two(&input)?);
 
     Ok(())
 }
