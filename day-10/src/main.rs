@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_to_string;
+use std::collections::HashMap;
 
 #[derive(Debug, Copy, Clone)]
 struct Dir {
@@ -23,6 +23,12 @@ impl Dir {
             (1, 0) => Some(Dir::RIGHT),
             _ => None,
         }
+    }
+}
+
+impl PartialEq for Dir {
+    fn eq(&self, other: &Self) -> bool {
+        self.dx == other.dx && self.dy == other.dy
     }
 }
 
@@ -55,8 +61,7 @@ fn get_start(grid: &Vec<&[u8]>) -> Option<(usize, usize)> {
     None
 }
 
-fn walk(grid: &Vec<&[u8]>, prev: &mut (usize, usize), curr: &mut (usize, usize)) {
-    let mut visited: Vec<Vec<bool>> = grid.iter().map(|row| vec![false; row.len()]).collect();
+fn walk(grid: &Vec<&[u8]>, visited: &mut Vec<Vec<bool>>, prev: &mut (usize, usize), curr: &mut (usize, usize)) -> Option<bool> {
     let pipes: HashMap<u8, [Dir; 2]> = HashMap::from([
         (b'|', [Dir::UP, Dir::DOWN]),
         (b'-', [Dir::LEFT, Dir::RIGHT]),
@@ -66,16 +71,37 @@ fn walk(grid: &Vec<&[u8]>, prev: &mut (usize, usize), curr: &mut (usize, usize))
         (b'F', [Dir::DOWN, Dir::RIGHT]),
     ]);
 
+    visited[curr.1][curr.0] = true;
     let diff: (i32, i32) = (curr.0 as i32 - prev.0 as i32, curr.1 as i32 - prev.1 as i32);
-    if let Some(dir) = Dir::from_tuple(diff) {}
+    if let Some(prev_dir) = Dir::from_tuple(diff) {
+        if let Some(pipe_dirs) = pipes.get(&grid[curr.1][curr.0]) {
+            if let Some(next_dir) = pipe_dirs.iter().filter(|dir| **dir != prev_dir).collect::<Vec<&Dir>>().first() {
+                //TODO check if we can come from here
+                let n = ((curr.0 as i32 + next_dir.dx) as usize, (curr.1 as i32 + next_dir.dy) as usize);
+                if is_inbound(grid, n.0, n.1)
+                    && (is_pipe(grid[n.1][n.0]) || grid[n.1][n.0] == b'S')
+                    && !visited[n.1][n.0]
+                {
+                    if is_pipe(grid[n.1][n.0]) {
+                        println!("Old: prev {:?} curr {:?}", prev, curr);
+                        *prev = *curr;
+                        *curr = n;
+                        println!("New: prev {:?} curr {:?}", prev, curr);
+                        return Some(true);
+                    }
+                    return Some(false);
+                }
+            }
+        }
+    }
+    None
 }
 
 fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
-    // let mut ans = 0;
     let grid = parse(input)?;
 
     println!("{:?}", grid);
-    if let Some(start) = get_start(&grid) {
+    if let Some(mut start) = get_start(&grid) {
         let mut ways = Vec::<(usize, usize)>::new();
         for dir in Dir::LIST {
             let x = (start.0 as i32 + dir.dx) as usize;
@@ -85,7 +111,26 @@ fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
             }
         }
 
-        for (x, y) in &ways {}
+        for way in &ways {
+            let mut steps = 0;
+            let mut visited: Vec<Vec<bool>> = grid.iter().map(|row| vec![false; row.len()]).collect();
+            visited[start.1][start.0] = true;
+            println!("Trying going {:?}", way);
+            loop {
+                println!("{:?}", visited);
+                if let Some(walk) = walk(&grid, &mut visited, &mut start, &mut way.clone()) {
+                    if walk {
+                        steps += 1;
+                    } else {
+                        println!(">>> {}", steps);
+                    }
+                } else {
+                    break;
+                }
+
+            }
+
+        }
 
         println!("{:?}", ways);
         println!("{:?}", start);
