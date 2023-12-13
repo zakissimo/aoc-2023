@@ -1,8 +1,8 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_to_string;
-use std::collections::HashMap;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 struct Dir {
     dx: i32,
     dy: i32,
@@ -14,22 +14,6 @@ impl Dir {
     const LEFT: Dir = Dir { dy: 0, dx: -1 };
     const RIGHT: Dir = Dir { dy: 0, dx: 1 };
     const LIST: [Dir; 4] = [Dir::UP, Dir::DOWN, Dir::LEFT, Dir::RIGHT];
-
-    fn from_tuple(tuple: (i32, i32)) -> Option<Dir> {
-        match tuple {
-            (0, -1) => Some(Dir::UP),
-            (0, 1) => Some(Dir::DOWN),
-            (-1, 0) => Some(Dir::LEFT),
-            (1, 0) => Some(Dir::RIGHT),
-            _ => None,
-        }
-    }
-}
-
-impl PartialEq for Dir {
-    fn eq(&self, other: &Self) -> bool {
-        self.dx == other.dx && self.dy == other.dy
-    }
 }
 
 fn parse(input: &str) -> Result<Vec<&[u8]>, Box<dyn Error>> {
@@ -61,7 +45,22 @@ fn get_start(grid: &Vec<&[u8]>) -> Option<(usize, usize)> {
     None
 }
 
-fn walk(grid: &Vec<&[u8]>, visited: &mut Vec<Vec<bool>>, prev: &mut (usize, usize), curr: &mut (usize, usize)) -> Option<bool> {
+fn rev_dir(dir: Dir) -> Dir {
+    match dir {
+        Dir::UP => Dir::DOWN,
+        Dir::DOWN => Dir::UP,
+        Dir::LEFT => Dir::RIGHT,
+        Dir::RIGHT => Dir::LEFT,
+        _ => panic!("Unknown dir"),
+    }
+}
+
+fn walk(
+    grid: &Vec<&[u8]>,
+    visited: &mut Vec<Vec<bool>>,
+    prev: &mut (usize, usize),
+    go: &mut Dir,
+) -> Option<bool> {
     let pipes: HashMap<u8, [Dir; 2]> = HashMap::from([
         (b'|', [Dir::UP, Dir::DOWN]),
         (b'-', [Dir::LEFT, Dir::RIGHT]),
@@ -71,25 +70,32 @@ fn walk(grid: &Vec<&[u8]>, visited: &mut Vec<Vec<bool>>, prev: &mut (usize, usiz
         (b'F', [Dir::DOWN, Dir::RIGHT]),
     ]);
 
-    visited[curr.1][curr.0] = true;
-    let diff: (i32, i32) = (curr.0 as i32 - prev.0 as i32, curr.1 as i32 - prev.1 as i32);
-    if let Some(prev_dir) = Dir::from_tuple(diff) {
-        if let Some(pipe_dirs) = pipes.get(&grid[curr.1][curr.0]) {
-            if let Some(next_dir) = pipe_dirs.iter().filter(|dir| **dir != prev_dir).collect::<Vec<&Dir>>().first() {
-                //TODO check if we can come from here
-                let n = ((curr.0 as i32 + next_dir.dx) as usize, (curr.1 as i32 + next_dir.dy) as usize);
-                if is_inbound(grid, n.0, n.1)
-                    && (is_pipe(grid[n.1][n.0]) || grid[n.1][n.0] == b'S')
-                    && !visited[n.1][n.0]
-                {
-                    if is_pipe(grid[n.1][n.0]) {
-                        println!("Old: prev {:?} curr {:?}", prev, curr);
-                        *prev = *curr;
-                        *curr = n;
-                        println!("New: prev {:?} curr {:?}", prev, curr);
-                        return Some(true);
+    visited[prev.1][prev.0] = true;
+    let curr = (
+        (prev.0 as i32 + go.dx) as usize,
+        (prev.1 as i32 + go.dy) as usize,
+    );
+    if is_inbound(grid, curr.0, curr.1) {
+        if let Some(pipe) = pipes.get(&grid[curr.1][curr.0]) {
+            let rev_pipe = pipe.iter().map(|d| rev_dir(*d)).collect::<Vec<Dir>>();
+            if rev_pipe.contains(&go) {
+                if let Some(next_dir) = pipe.iter().find(|dir| **dir != rev_dir(*go)) {
+                    let next = (
+                        (curr.0 as i32 + next_dir.dx) as usize,
+                        (curr.1 as i32 + next_dir.dy) as usize,
+                    );
+                    if is_inbound(&grid, next.0, next.1) {
+                        if !visited[next.1 as usize][next.0 as usize]
+                            && is_pipe(grid[next.1][next.0])
+                        {
+                            *go = *next_dir;
+                            *prev = curr;
+                            return Some(true);
+                        }
+                        if grid[next.1][next.0] == b'S' {
+                            return Some(false);
+                        }
                     }
-                    return Some(false);
                 }
             }
         }
@@ -97,53 +103,66 @@ fn walk(grid: &Vec<&[u8]>, visited: &mut Vec<Vec<bool>>, prev: &mut (usize, usiz
     None
 }
 
+fn distance(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
+    ((x2 - x1).powi(2) + (y2 - y1).powi(2)).sqrt()
+}
+
 fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
+    // let mut ans: (usize, f64) = (0, 0.0);
+    let mut ans = 0;
     let grid = parse(input)?;
 
-    println!("{:?}", grid);
-    if let Some(mut start) = get_start(&grid) {
-        let mut ways = Vec::<(usize, usize)>::new();
-        for dir in Dir::LIST {
-            let x = (start.0 as i32 + dir.dx) as usize;
-            let y = (start.1 as i32 + dir.dy) as usize;
-            if is_inbound(&grid, x, y) && is_pipe(grid[y][x]) {
-                ways.push((x, y));
-            }
-        }
-
-        for way in &ways {
-            let mut steps = 0;
-            let mut visited: Vec<Vec<bool>> = grid.iter().map(|row| vec![false; row.len()]).collect();
+    if let Some(start) = get_start(&grid) {
+        for dir in &Dir::LIST {
+            let mut prev = start;
+            let mut go = dir.clone();
+            let mut points: Vec<Vec<(usize, f64)>> =
+                grid.iter().map(|row| vec![(0, 0.0); row.len()]).collect();
+            let mut visited: Vec<Vec<bool>> =
+                grid.iter().map(|row| vec![false; row.len()]).collect();
             visited[start.1][start.0] = true;
-            println!("Trying going {:?}", way);
+            let mut count = 0;
             loop {
-                println!("{:?}", visited);
-                if let Some(walk) = walk(&grid, &mut visited, &mut start, &mut way.clone()) {
-                    if walk {
-                        steps += 1;
+                if let Some(walk) = walk(&grid, &mut visited, &mut prev, &mut go) {
+                    if !walk {
+                        // ans = *points
+                        //     .iter()
+                        //     .map(|row| {
+                        //         row.iter()
+                        //             .max_by(|&a, &b| a.1.partial_cmp(&b.1).unwrap())
+                        //             .unwrap()
+                        //     })
+                        //     .max_by(|&a, &b| a.1.partial_cmp(&b.1).unwrap())
+                        //     .unwrap();
+                        println!("{:?}", count);
+                        println!("{:?}", visited);
+                        ans = count;
+                        break;
                     } else {
-                        println!(">>> {}", steps);
+                        count += 1;
+                        // points[prev.1][prev.0] = (
+                        //     count,
+                        //     distance(start.0 as f64, start.1 as f64, prev.0 as f64, prev.1 as f64),
+                        // );
                     }
                 } else {
                     break;
                 }
-
             }
-
         }
-
-        println!("{:?}", ways);
-        println!("{:?}", start);
     }
 
-    Ok(0)
+    Ok(ans)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let sample_one = read_to_string("sample_one")?;
-    // let sample_two = read_to_string("sample_two")?;
-    // let input = read_to_string("input")?;
+    let sample_two = read_to_string("sample_two")?;
+    let input = read_to_string("input")?;
+
     println!("Sample one: {}", part_one(&sample_one)?);
+    println!("Sample two: {}", part_one(&sample_two)?);
+    // println!("Input: {}", part_one(&input)?);
 
     Ok(())
 }
