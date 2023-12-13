@@ -37,7 +37,7 @@ fn get_start(grid: &Vec<&[u8]>) -> Option<(usize, usize)> {
     for (i, row) in grid.iter().enumerate() {
         for (j, c) in row.iter().enumerate() {
             if *c == b'S' {
-                return Some((i, j));
+                return Some((j, i));
             }
         }
     }
@@ -70,12 +70,12 @@ fn walk(
         (b'F', [Dir::DOWN, Dir::RIGHT]),
     ]);
 
-    visited[prev.1][prev.0] = true;
     let curr = (
         (prev.0 as i32 + go.dx) as usize,
         (prev.1 as i32 + go.dy) as usize,
     );
     if is_inbound(grid, curr.0, curr.1) {
+        visited[curr.1][curr.0] = true;
         if let Some(pipe) = pipes.get(&grid[curr.1][curr.0]) {
             let rev_pipe = pipe.iter().map(|d| rev_dir(*d)).collect::<Vec<Dir>>();
             if rev_pipe.contains(&go) {
@@ -103,10 +103,6 @@ fn walk(
     None
 }
 
-fn distance(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
-    ((x2 - x1).powi(2) + (y2 - y1).powi(2)).sqrt()
-}
-
 fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
     // let mut ans: (usize, f64) = (0, 0.0);
     let mut ans = 0;
@@ -116,34 +112,16 @@ fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
         for dir in &Dir::LIST {
             let mut prev = start;
             let mut go = dir.clone();
-            let mut points: Vec<Vec<(usize, f64)>> =
-                grid.iter().map(|row| vec![(0, 0.0); row.len()]).collect();
             let mut visited: Vec<Vec<bool>> =
                 grid.iter().map(|row| vec![false; row.len()]).collect();
             visited[start.1][start.0] = true;
-            let mut count = 0;
+            let mut count = 1;
             loop {
                 if let Some(walk) = walk(&grid, &mut visited, &mut prev, &mut go) {
+                    count += 1;
                     if !walk {
-                        // ans = *points
-                        //     .iter()
-                        //     .map(|row| {
-                        //         row.iter()
-                        //             .max_by(|&a, &b| a.1.partial_cmp(&b.1).unwrap())
-                        //             .unwrap()
-                        //     })
-                        //     .max_by(|&a, &b| a.1.partial_cmp(&b.1).unwrap())
-                        //     .unwrap();
-                        println!("{:?}", count);
-                        println!("{:?}", visited);
                         ans = count;
                         break;
-                    } else {
-                        count += 1;
-                        // points[prev.1][prev.0] = (
-                        //     count,
-                        //     distance(start.0 as f64, start.1 as f64, prev.0 as f64, prev.1 as f64),
-                        // );
                     }
                 } else {
                     break;
@@ -152,7 +130,7 @@ fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
         }
     }
 
-    Ok(ans)
+    Ok(ans / 2)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -162,7 +140,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Sample one: {}", part_one(&sample_one)?);
     println!("Sample two: {}", part_one(&sample_two)?);
-    // println!("Input: {}", part_one(&input)?);
+    println!("Input: {}", part_one(&input)?);
 
     Ok(())
 }
