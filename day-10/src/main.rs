@@ -33,6 +33,16 @@ fn is_pipe(c: u8) -> bool {
     return "|-LJ7F".contains(c as char);
 }
 
+fn rev_pipe(c: u8) -> u8 {
+    match c {
+        b'L' => b'J',
+        b'J' => b'L',
+        b'F' => b'7',
+        b'7' => b'F',
+        _ => b'|',
+    }
+}
+
 fn get_start(grid: &Vec<&[u8]>) -> Option<(usize, usize)> {
     for (i, row) in grid.iter().enumerate() {
         for (j, c) in row.iter().enumerate() {
@@ -132,64 +142,100 @@ fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
     Ok(ans / 2)
 }
 
+fn get_inside(grid: &Vec<&[u8]>, visited: &mut Vec<Vec<bool>>) -> usize {
+
+    let mut ans = 0;
+    let left = [b'F', b'L'];
+    let right = [b'7', b'J'];
+    for (y, row) in grid.iter().enumerate() {
+        let mut inside = false;
+        let mut dots = 0;
+        let mut pipe_q = Vec::<u8>::new();
+        let mut vert_pipe_q = Vec::<u8>::new();
+        for (x, tile) in row.iter().enumerate() {
+            if visited[y][x] {
+                if grid[y][x] == b'|' {
+                    if vert_pipe_q.is_empty() {
+                        vert_pipe_q.push(b'|');
+                        inside = true;
+                    } else {
+                        vert_pipe_q.pop();
+                        inside = false;
+                    }
+                }
+                else if left.contains(&grid[y][x]) {
+                    inside = !inside;
+                    pipe_q.push(grid[y][x]);
+                }
+                else if right.contains(&grid[y][x]) {
+                    if !pipe_q.is_empty() {
+                        if rev_pipe(*pipe_q.first().unwrap()) == grid[y][x] {
+                            inside = !inside;
+                            pipe_q.remove(0);
+                        }
+                    }
+                }
+            }
+
+            if inside && *tile == b'.' {
+                // println!("Dot found: y: {}, x: {}", y, x);
+                dots += 1;
+            }
+            if !inside && visited[y][x] {
+                if dots > 0 {
+                    // println!("Adding last {} dots", dots);
+                }
+                ans += dots;
+                dots = 0;
+            }
+        }
+    }
+    ans
+}
+
 fn part_two(input: &str) -> Result<usize, Box<dyn Error>> {
     let grid = parse(input)?;
 
+    let mut ans = 0;
     if let Some(start) = get_start(&grid) {
         for dir in &Dir::LIST {
-            let mut ans = 0;
             let mut prev = start;
             let mut go = dir.clone();
             let mut visited: Vec<Vec<bool>> =
                 grid.iter().map(|row| vec![false; row.len()]).collect();
             visited[start.1][start.0] = true;
-            let left = &[b'F', b'|', b'L', b'S'];
-            let right = &[b'J', b'|', b'7', b'S'];
             loop {
                 if let Some(walk) = walk(&grid, &mut visited, &mut prev, &mut go) {
                     if !walk {
-                        for (y, row) in grid.iter().enumerate() {
-                            let mut inside = false;
-                            for (x, tile) in row.iter().enumerate() {
-                                if visited[y][x] && grid[y][x] == b'|' {
-                                    inside = !inside;
-                                } else if left.contains(&grid[y][x]) {
-                                    inside = true;
-                                } else if right.contains(&grid[y][x]) {
-                                    inside = false;
-                                }
-                                if x < row.len() - 1 && inside && *tile == b'.' {
-                                    ans += 1;
-                                }
-                            }
-                        }
+                        ans = get_inside(&grid, &mut visited);
                         break;
                     }
                 } else {
                     break;
                 }
             }
-            println!("ans: {:?}", ans);
         }
     }
 
-    Ok(0)
+    Ok(ans)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let sample_one = read_to_string("sample_one")?;
-    let sample_two = read_to_string("sample_two")?;
+    // let sample_one = read_to_string("sample_one")?;
+    // let sample_two = read_to_string("sample_two")?;
     let sample_three = read_to_string("sample_three")?;
     let sample_four = read_to_string("sample_four")?;
+    let sample_five = read_to_string("sample_five")?;
     let input = read_to_string("input")?;
 
-    println!("Sample one: {}", part_one(&sample_one)?);
-    println!("Sample two: {}", part_one(&sample_two)?);
+    // println!("Sample one: {}", part_one(&sample_one)?);
+    // println!("Sample two: {}", part_one(&sample_two)?);
 
     println!("Sample three: {}", part_two(&sample_three)?);
     println!("Sample four: {}", part_two(&sample_four)?);
+    println!("Sample five: {}", part_two(&sample_five)?);
 
-    println!("Input: {}", part_one(&input)?);
+    // println!("Input: {}", part_one(&input)?);
     println!("Input: {}", part_two(&input)?);
 
     Ok(())
