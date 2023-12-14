@@ -33,16 +33,6 @@ fn is_pipe(c: u8) -> bool {
     return "|-LJ7F".contains(c as char);
 }
 
-fn rev_pipe(c: u8) -> u8 {
-    match c {
-        b'L' => b'J',
-        b'J' => b'L',
-        b'F' => b'7',
-        b'7' => b'F',
-        _ => b'|',
-    }
-}
-
 fn get_start(grid: &Vec<&[u8]>) -> Option<(usize, usize)> {
     for (i, row) in grid.iter().enumerate() {
         for (j, c) in row.iter().enumerate() {
@@ -142,72 +132,89 @@ fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
     Ok(ans / 2)
 }
 
-fn get_inside(grid: &Vec<&[u8]>, visited: &mut Vec<Vec<bool>>) -> usize {
-
+fn get_inside(grid: &Vec<&[u8]>, visited: &mut Vec<Vec<bool>>, start_pipe: u8) -> usize {
     let mut ans = 0;
-    let left = [b'F', b'L'];
-    let right = [b'7', b'J'];
+    let mut tiles = 0;
+    let pipes = [b'F', b'7', b'L', b'J'];
+    let down_pipes = [b'F', b'7'];
+    let up_pipes = [b'L', b'J'];
     for (y, row) in grid.iter().enumerate() {
         let mut inside = false;
-        let mut dots = 0;
-        let mut pipe_q = Vec::<u8>::new();
-        let mut vert_pipe_q = Vec::<u8>::new();
+        let mut prev = b'*';
+        ans += tiles;
+        tiles = 0;
+        let mut seen = 0;
         for (x, tile) in row.iter().enumerate() {
-            if visited[y][x] {
-                if grid[y][x] == b'|' {
-                    if vert_pipe_q.is_empty() {
-                        vert_pipe_q.push(b'|');
-                        inside = true;
-                    } else {
-                        vert_pipe_q.pop();
-                        inside = false;
-                    }
+            if x < row.len() - 1 {
+                let mut tile = tile;
+                if *tile == b'S' {
+                    tile = &start_pipe;
+                    println!("S pipe is {}", *tile as char);
                 }
-                else if left.contains(&grid[y][x]) {
-                    inside = !inside;
-                    pipe_q.push(grid[y][x]);
-                }
-                else if right.contains(&grid[y][x]) {
-                    if !pipe_q.is_empty() {
-                        if rev_pipe(*pipe_q.first().unwrap()) == grid[y][x] {
-                            inside = !inside;
-                            pipe_q.remove(0);
+                if visited[y][x] {
+                    if *tile == b'|' {
+                        inside = !inside;
+                    } else if pipes.contains(tile) {
+                        seen += 1;
+                        if pipes.contains(&prev) {
+                            if seen % 2 == 0
+                                && (down_pipes.contains(&prev) && up_pipes.contains(&tile))
+                                || (down_pipes.contains(&tile) && up_pipes.contains(&prev))
+                            {
+                                inside = !inside;
+                            }
                         }
+                        prev = *tile;
+                    }
+                } else {
+                    if inside {
+                        tiles += 1;
+                        // println!("{} {} {}", y, x, *tile as char);
                     }
                 }
-            }
-
-            if inside && *tile == b'.' {
-                // println!("Dot found: y: {}, x: {}", y, x);
-                dots += 1;
-            }
-            if !inside && visited[y][x] {
-                if dots > 0 {
-                    // println!("Adding last {} dots", dots);
-                }
-                ans += dots;
-                dots = 0;
+                println!(
+                    "Inside: {}, y: {}, x: {}, tile: {}",
+                    inside, y, x, *tile as char
+                );
             }
         }
     }
     ans
 }
 
+fn dir_to_pipe(target_value: &Vec<Dir>) -> Option<u8> {
+    let pipes: HashMap<u8, [Dir; 2]> = HashMap::from([
+        (b'|', [Dir::UP, Dir::DOWN]),
+        (b'-', [Dir::LEFT, Dir::RIGHT]),
+        (b'L', [Dir::UP, Dir::RIGHT]),
+        (b'J', [Dir::UP, Dir::LEFT]),
+        (b'7', [Dir::DOWN, Dir::LEFT]),
+        (b'F', [Dir::DOWN, Dir::RIGHT]),
+    ]);
+    for (key, value) in pipes.iter() {
+        if value.contains(&target_value[0]) && value.contains(&target_value[1]) {
+            return Some(*key);
+        };
+    }
+    None
+}
+
 fn part_two(input: &str) -> Result<usize, Box<dyn Error>> {
     let grid = parse(input)?;
 
-    let mut ans = 0;
+    let mut start_pipe = Vec::<Dir>::new();
+    let mut visited: Vec<Vec<bool>> = grid.iter().map(|row| vec![false; row.len()]).collect();
+
     if let Some(start) = get_start(&grid) {
         for dir in &Dir::LIST {
             let mut prev = start;
             let mut go = dir.clone();
-            let mut visited: Vec<Vec<bool>> =
-                grid.iter().map(|row| vec![false; row.len()]).collect();
+            visited = grid.iter().map(|row| vec![false; row.len()]).collect();
             visited[start.1][start.0] = true;
             loop {
                 if let Some(walk) = walk(&grid, &mut visited, &mut prev, &mut go) {
                     if !walk {
-                        ans = get_inside(&grid, &mut visited);
+                        start_pipe.push(*dir);
                         break;
                     }
                 } else {
@@ -217,7 +224,11 @@ fn part_two(input: &str) -> Result<usize, Box<dyn Error>> {
         }
     }
 
-    Ok(ans)
+    Ok(get_inside(
+        &grid,
+        &mut visited,
+        dir_to_pipe(&start_pipe).unwrap(),
+    ))
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -236,7 +247,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Sample five: {}", part_two(&sample_five)?);
 
     // println!("Input: {}", part_one(&input)?);
-    println!("Input: {}", part_two(&input)?);
+    // println!("Input: {}", part_two(&input)?);
 
     Ok(())
 }
