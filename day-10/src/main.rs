@@ -134,48 +134,32 @@ fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
 
 fn get_inside(grid: &Vec<&[u8]>, visited: &mut Vec<Vec<bool>>, start_pipe: u8) -> usize {
     let mut ans = 0;
-    let mut tiles = 0;
-    let pipes = [b'F', b'7', b'L', b'J'];
-    let down_pipes = [b'F', b'7'];
-    let up_pipes = [b'L', b'J'];
+    let open_pipes = [b'F', b'L'];
+    let close_pipes = [b'7', b'J'];
     for (y, row) in grid.iter().enumerate() {
         let mut inside = false;
         let mut prev = b'*';
-        ans += tiles;
-        tiles = 0;
-        let mut seen = 0;
         for (x, tile) in row.iter().enumerate() {
             if x < row.len() - 1 {
                 let mut tile = tile;
                 if *tile == b'S' {
                     tile = &start_pipe;
-                    println!("S pipe is {}", *tile as char);
                 }
                 if visited[y][x] {
                     if *tile == b'|' {
                         inside = !inside;
-                    } else if pipes.contains(tile) {
-                        seen += 1;
-                        if pipes.contains(&prev) {
-                            if seen % 2 == 0
-                                && (down_pipes.contains(&prev) && up_pipes.contains(&tile))
-                                || (down_pipes.contains(&tile) && up_pipes.contains(&prev))
-                            {
-                                inside = !inside;
-                            }
-                        }
+                    } else if open_pipes.contains(tile) {
                         prev = *tile;
+                    } else if close_pipes.contains(tile) {
+                        if (prev == b'F' && *tile == b'J') || (prev == b'L' && *tile == b'7') {
+                            inside = !inside;
+                        }
                     }
                 } else {
                     if inside {
-                        tiles += 1;
-                        // println!("{} {} {}", y, x, *tile as char);
+                        ans += 1;
                     }
                 }
-                println!(
-                    "Inside: {}, y: {}, x: {}, tile: {}",
-                    inside, y, x, *tile as char
-                );
             }
         }
     }
@@ -232,22 +216,20 @@ fn part_two(input: &str) -> Result<usize, Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // let sample_one = read_to_string("sample_one")?;
-    // let sample_two = read_to_string("sample_two")?;
+    let sample_one = read_to_string("sample_one")?;
+    let sample_two = read_to_string("sample_two")?;
     let sample_three = read_to_string("sample_three")?;
     let sample_four = read_to_string("sample_four")?;
-    let sample_five = read_to_string("sample_five")?;
     let input = read_to_string("input")?;
 
-    // println!("Sample one: {}", part_one(&sample_one)?);
-    // println!("Sample two: {}", part_one(&sample_two)?);
+    println!("Part One Sample one: {}", part_one(&sample_one)?);
+    println!("Part One Sample two: {}", part_one(&sample_two)?);
 
-    println!("Sample three: {}", part_two(&sample_three)?);
-    println!("Sample four: {}", part_two(&sample_four)?);
-    println!("Sample five: {}", part_two(&sample_five)?);
+    println!("Part Two Sample three: {}", part_two(&sample_three)?);
+    println!("Part Two Sample four: {}", part_two(&sample_four)?);
 
-    // println!("Input: {}", part_one(&input)?);
-    // println!("Input: {}", part_two(&input)?);
+    println!("Part One Input: {}", part_one(&input)?);
+    println!("Part Two Input: {}", part_two(&input)?);
 
     Ok(())
 }
