@@ -20,9 +20,9 @@ fn parse(input: &str) -> Result<Vec<&[u8]>, Box<dyn Error>> {
     Ok(input.lines().map(|line| line.as_bytes()).collect())
 }
 
-fn is_inbound(grid: &Vec<&[u8]>, x: usize, y: usize) -> bool {
+fn is_inbound(grid: &[&[u8]], x: usize, y: usize) -> bool {
     if let Some(row) = grid.get(y) {
-        if let Some(_) = row.get(x) {
+        if row.get(x).is_some() {
             return true;
         }
     }
@@ -30,10 +30,10 @@ fn is_inbound(grid: &Vec<&[u8]>, x: usize, y: usize) -> bool {
 }
 
 fn is_pipe(c: u8) -> bool {
-    return "|-LJ7F".contains(c as char);
+    "|-LJ7F".contains(c as char)
 }
 
-fn get_start(grid: &Vec<&[u8]>) -> Option<(usize, usize)> {
+fn get_start(grid: &[&[u8]]) -> Option<(usize, usize)> {
     for (i, row) in grid.iter().enumerate() {
         for (j, c) in row.iter().enumerate() {
             if *c == b'S' {
@@ -56,8 +56,8 @@ fn rev_dir(dir: Dir) -> Dir {
 }
 
 fn walk(
-    grid: &Vec<&[u8]>,
-    visited: &mut Vec<Vec<bool>>,
+    grid: &[&[u8]],
+    visited: &mut [Vec<bool>],
     prev: &mut (usize, usize),
     go: &mut Dir,
 ) -> Option<bool> {
@@ -78,16 +78,14 @@ fn walk(
         visited[curr.1][curr.0] = true;
         if let Some(pipe) = pipes.get(&grid[curr.1][curr.0]) {
             let rev_pipe = pipe.iter().map(|d| rev_dir(*d)).collect::<Vec<Dir>>();
-            if rev_pipe.contains(&go) {
+            if rev_pipe.contains(go) {
                 if let Some(next_dir) = pipe.iter().find(|dir| **dir != rev_dir(*go)) {
                     let next = (
                         (curr.0 as i32 + next_dir.dx) as usize,
                         (curr.1 as i32 + next_dir.dy) as usize,
                     );
-                    if is_inbound(&grid, next.0, next.1) {
-                        if !visited[next.1 as usize][next.0 as usize]
-                            && is_pipe(grid[next.1][next.0])
-                        {
+                    if is_inbound(grid, next.0, next.1) {
+                        if !visited[next.1][next.0] && is_pipe(grid[next.1][next.0]) {
                             *go = *next_dir;
                             *prev = curr;
                             return Some(true);
@@ -110,19 +108,15 @@ fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
     if let Some(start) = get_start(&grid) {
         for dir in &Dir::LIST {
             let mut prev = start;
-            let mut go = dir.clone();
+            let mut go = *dir;
             let mut visited: Vec<Vec<bool>> =
                 grid.iter().map(|row| vec![false; row.len()]).collect();
             visited[start.1][start.0] = true;
             let mut count = 1;
-            loop {
-                if let Some(walk) = walk(&grid, &mut visited, &mut prev, &mut go) {
-                    count += 1;
-                    if !walk {
-                        ans = count;
-                        break;
-                    }
-                } else {
+            while let Some(walk) = walk(&grid, &mut visited, &mut prev, &mut go) {
+                count += 1;
+                if !walk {
+                    ans = count;
                     break;
                 }
             }
@@ -132,7 +126,7 @@ fn part_one(input: &str) -> Result<usize, Box<dyn Error>> {
     Ok(ans / 2)
 }
 
-fn get_inside(grid: &Vec<&[u8]>, visited: &mut Vec<Vec<bool>>, start_pipe: u8) -> usize {
+fn get_inside(grid: &[&[u8]], visited: &mut [Vec<bool>], start_pipe: u8) -> usize {
     let mut ans = 0;
     let open_pipes = [b'F', b'L'];
     let close_pipes = [b'7', b'J'];
@@ -166,7 +160,7 @@ fn get_inside(grid: &Vec<&[u8]>, visited: &mut Vec<Vec<bool>>, start_pipe: u8) -
     ans
 }
 
-fn dir_to_pipe(target_value: &Vec<Dir>) -> Option<u8> {
+fn dir_to_pipe(target_value: &[Dir]) -> Option<u8> {
     let pipes: HashMap<u8, [Dir; 2]> = HashMap::from([
         (b'|', [Dir::UP, Dir::DOWN]),
         (b'-', [Dir::LEFT, Dir::RIGHT]),
@@ -192,16 +186,12 @@ fn part_two(input: &str) -> Result<usize, Box<dyn Error>> {
     if let Some(start) = get_start(&grid) {
         for dir in &Dir::LIST {
             let mut prev = start;
-            let mut go = dir.clone();
+            let mut go = *dir;
             visited = grid.iter().map(|row| vec![false; row.len()]).collect();
             visited[start.1][start.0] = true;
-            loop {
-                if let Some(walk) = walk(&grid, &mut visited, &mut prev, &mut go) {
-                    if !walk {
-                        start_pipe.push(*dir);
-                        break;
-                    }
-                } else {
+            while let Some(walk) = walk(&grid, &mut visited, &mut prev, &mut go) {
+                if !walk {
+                    start_pipe.push(*dir);
                     break;
                 }
             }
